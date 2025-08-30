@@ -275,9 +275,13 @@ class LLMUserAggregator(LLMContextAggregator):
             await self._handle_bot_stopped_speaking(frame)
             await self.push_frame(frame, direction)
         elif isinstance(frame, TranscriptionFrame):
+            logger.debug(f"LLMUserAggregator: Received TranscriptionFrame: {frame.text}")
             await self._handle_transcription(frame)
+            await self.push_frame(frame, direction)
         elif isinstance(frame, InterimTranscriptionFrame):
+            logger.debug(f"LLMUserAggregator: Received InterimTranscriptionFrame: {frame.text}")
             await self._handle_interim_transcription(frame)
+            await self.push_frame(frame, direction)
         elif isinstance(frame, LLMRunFrame):
             await self._handle_llm_run(frame)
         elif isinstance(frame, LLMMessagesAppendFrame):
@@ -301,6 +305,7 @@ class LLMUserAggregator(LLMContextAggregator):
         await self.reset()
         self._context.add_message({"role": self.role, "content": aggregation})
         frame = LLMContextFrame(self._context)
+        logger.debug(f"LLMUserAggregator: Pushing LLMContextFrame: {frame.context.get_messages()}")
         await self.push_frame(frame)
 
     async def _push_aggregation(self):
@@ -338,11 +343,7 @@ class LLMUserAggregator(LLMContextAggregator):
             # await self.push_frame(LLMContextFrame(self._context))
 
     async def _should_interrupt_based_on_strategies(self) -> bool:
-        """Check if interruption should occur based on configured strategies.
-
-        Returns:
-            True if any interruption strategy indicates interruption should occur.
-        """
+        """Check if interruption should occur based on configured strategies."""
 
         async def should_interrupt(strategy: BaseInterruptionStrategy):
             await strategy.append_text(self._aggregation)
@@ -360,17 +361,17 @@ class LLMUserAggregator(LLMContextAggregator):
         await self._cancel_aggregation_task()
 
     async def _handle_llm_run(self, frame: LLMRunFrame):
-        await self.push_context_frame()
+        await self.push_context_frame(FrameDirection.UPSTREAM)
 
     async def _handle_llm_messages_append(self, frame: LLMMessagesAppendFrame):
         self.add_messages(frame.messages)
         if frame.run_llm:
-            await self.push_context_frame()
+            await self.push_context_frame(FrameDirection.UPSTREAM)
 
     async def _handle_llm_messages_update(self, frame: LLMMessagesUpdateFrame):
         self.set_messages(frame.messages)
         if frame.run_llm:
-            await self.push_context_frame()
+            await self.push_context_frame(FrameDirection.UPSTREAM)
 
     async def _handle_input_audio(self, frame: InputAudioRawFrame):
         for s in self.interruption_strategies:
@@ -587,6 +588,7 @@ class LLMAssistantAggregator(LLMContextAggregator):
         elif isinstance(frame, LLMFullResponseEndFrame):
             await self._handle_llm_end(frame)
         elif isinstance(frame, TextFrame):
+            logger.debug(f"LLMAssistantAggregator: Received TextFrame: {frame.text}")
             await self._handle_text(frame)
         elif isinstance(frame, LLMRunFrame):
             await self._handle_llm_run(frame)
@@ -678,11 +680,7 @@ class LLMAssistantAggregator(LLMContextAggregator):
             }
         )
         self._context.add_message(
-            {
-                "role": "tool",
-                "content": "IN_PROGRESS",
-                "tool_call_id": frame.tool_call_id,
-            }
+            {"role": "tool", "content": "IN_PROGRESS", "tool_call_id": frame.tool_call_id}
         )
 
         self._function_calls_in_progress[frame.tool_call_id] = frame

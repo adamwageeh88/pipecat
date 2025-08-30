@@ -1107,6 +1107,12 @@ class FunctionCallResultFrame(SystemFrame):
 
 
 @dataclass
+class HumeVoiceFrame(DataFrame):
+    """Frame containing Hume-specific voice data."""
+    data: bytes
+
+
+@dataclass
 class STTMuteFrame(SystemFrame):
     """Frame to mute/unmute the Speech-to-Text service.
 

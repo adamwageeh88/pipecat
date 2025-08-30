@@ -556,7 +556,7 @@ class PipelineTask(BasePipelineTask):
 
     async def _setup(self, params: PipelineTaskParams):
         """Set up the pipeline task and all processors."""
-        mgr_params = TaskManagerParams(loop=params.loop)
+        mgr_params = TaskManagerParams(loop=asyncio.get_running_loop())
         self._task_manager.setup(mgr_params)
 
         setup = FrameProcessorSetup(
